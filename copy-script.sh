@@ -23,6 +23,27 @@ list_tags() {
     git tag -l
 }
 
-# Call the function with the provided argument
-list_tags bullet3
+# Function to find tags that exist in bullet3 but not in stripped
+find_unique_tags() {
+    local dir_bullet3=$1
+    local dir_stripped=$2
+
+    # Get tags from bullet3
+    tags_bullet3=$(list_tags "$dir_bullet3")
+
+    # Get tags from stripped
+    tags_stripped=$(list_tags "$dir_stripped")
+
+    echo "Tags in $dir_bullet3 but not in $dir_stripped:"
+
+    # Compare the tags
+    for tag in $tags_bullet3; do
+        if ! echo "$tags_stripped" | grep -q "^$tag$"; then
+            echo "$tag"
+        fi
+    done
+}
+
+# Call the function with the provided arguments
+find_unique_tags bullet3 stripped
 
