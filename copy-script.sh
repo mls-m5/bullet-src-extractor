@@ -130,11 +130,24 @@ process_tags() {
     done
 }
 
-# Example usage: pass the paths to the bullet3 and stripped directories
-bullet3_dir="`realpath ./bullet3`"
-stripped_dir="`realpath ./stripped`":
+setup_stripped_repo() {
+    local stripped_dir=$1
 
-# Call the process_tags function with the paths to bullet3 and stripped directories
+    # Create the stripped directory if it doesn't exist
+    mkdir -p "$stripped_dir"
+
+    # Initialize the stripped directory as a Git repository if it's not already one
+    if [ ! -d "$stripped_dir/.git" ]; then
+        git -C "$stripped_dir" init
+        echo "Initialized empty Git repository in $stripped_dir"
+    fi
+}
+
+bullet3_dir="`realpath ./bullet3`"
+stripped_dir="`realpath ./stripped`"
+
+setup_stripped_repo "$stripped_dir"
+
 process_tags "$bullet3_dir" "$stripped_dir"
 
 
