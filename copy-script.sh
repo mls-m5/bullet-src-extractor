@@ -4,37 +4,40 @@
 list_tags() {
     local dir_path=$1
 
+    # Resolve absolute path of the directory
+    dir_path=$(realpath "$dir_path")
+
     # Check if the directory exists
     if [ ! -d "$dir_path" ]; then
         echo "Directory $dir_path not found"
         exit 1
     fi
 
-    # Navigate to the specified directory
-    cd "$dir_path" || { echo "Failed to navigate to $dir_path"; exit 1; }
-
     # Check if the directory is a Git repository
-    if [ ! -d ".git" ]; then
+    if [ ! -d "$dir_path/.git" ]; then
         echo "Directory $dir_path is not a Git repository"
         exit 1
     fi
 
-    # List all tags, one per line
-    git tag -l
+    # List all tags, one per line using git -C to specify the directory
+    git -C "$dir_path" tag -l
 }
 
 # Function to find tags that exist in bullet3 but not in stripped
+
 find_unique_tags() {
     local dir_bullet3=$1
     local dir_stripped=$2
+
+    # Resolve absolute paths
+    dir_bullet3=$(realpath "$dir_bullet3")
+    dir_stripped=$(realpath "$dir_stripped")
 
     # Get tags from bullet3
     tags_bullet3=$(list_tags "$dir_bullet3")
 
     # Get tags from stripped
     tags_stripped=$(list_tags "$dir_stripped")
-
-    # echo "Tags in $dir_bullet3 but not in $dir_stripped:"
 
     # Compare the tags
     for tag in $tags_bullet3; do
@@ -68,31 +71,36 @@ checkout_and_sync() {
         exit 1
     fi
 
-    # Navigate to the bullet3 directory
-    cd "$bullet3_dir" || { echo "Failed to navigate to $bullet3_dir"; exit 1; }
-
-    # Checkout the specified tag
-    git checkout "$tag_name" || { echo "Tag $tag_name not found in $bullet3_dir"; exit 1; }
+    # Checkout the specified tag using git -C to specify the directory
+    git -C "$bullet3_dir" checkout "$tag_name" || { echo "Tag $tag_name not found in $bullet3_dir"; exit 1; }
 
     # Sync src directory from bullet3 to stripped using rsync
     rsync -av --delete "$bullet3_dir/src/" "$stripped_dir/src/" || { echo "Rsync failed"; exit 1; }
 
-    # Copy LICENSE.txt from bullet3 to the root of stripped
-    cp "$bullet3_dir/LICENSE.txt" "$stripped_dir/" || { echo "Failed to copy LICENSE.txt"; }
+    # Check if LICENCE.txt exists and copy it if it does
+    if [ -f "$bullet3_dir/LICENCE.txt" ]; then
+        cp "$bullet3_dir/LICENCE.txt" "$stripped_dir/" || { echo "Failed to copy LICENCE.txt"; exit 1; }
+    else
+        echo "LICENCE.txt not found in $bullet3_dir, skipping copy."
+    fi
 
-    # Navigate to the stripped directory
-    cd "$stripped_dir" || { echo "Failed to navigate to $stripped_dir"; exit 1; }
+    # Add changes to the Git index using git -C
+    git -C "$stripped_dir" add . || { echo "Git add failed"; exit 1; }
 
-    # Add changes to the Git index
-    git add . || { echo "Git add failed"; exit 1; }
+    # Check if there are any changes to commit
+    if git -C "$stripped_dir" diff --cached --quiet; then
+        echo "No changes to commit for tag $tag_name."
+    else
+        # Commit the changes with the tag name as the commit message using git -C
+        git -C "$stripped_dir" commit -m "$tag_name" || { echo "Git commit failed"; exit 1; }
+        echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, copied LICENCE.txt (if it existed), and committed."
+    fi
 
-    # Commit the changes with the tag name as the commit message
-    git commit -m "$tag_name" || { echo "Git commit failed"; exit 1; }
+    # Tag the commit with the tag name
+    git -C "$stripped_dir" tag "$tag_name" || { echo "Failed to create tag $tag_name"; exit 1; }
 
-    echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, copied LICENSE.txt, and committed."
+    echo "Tag $tag_name created in $stripped_dir."
 }
-
-
 
 
 # Function to process each tag from find_unique_tags and pass it to checkout_and_sync
