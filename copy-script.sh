@@ -71,17 +71,23 @@ checkout_and_sync() {
         exit 1
     fi
 
+    # Check if the tag already exists in the stripped repository
+    if git -C "$stripped_dir" rev-parse "$tag_name" >/dev/null 2>&1; then
+        echo "Tag $tag_name already exists in $stripped_dir. Skipping."
+        return 0
+    fi
+
     # Checkout the specified tag using git -C to specify the directory
     git -C "$bullet3_dir" checkout "$tag_name" || { echo "Tag $tag_name not found in $bullet3_dir"; exit 1; }
 
     # Sync src directory from bullet3 to stripped using rsync
     rsync -av --delete "$bullet3_dir/src/" "$stripped_dir/src/" || { echo "Rsync failed"; exit 1; }
 
-    # Check if LICENCE.txt exists and copy it if it does
-    if [ -f "$bullet3_dir/LICENCE.txt" ]; then
-        cp "$bullet3_dir/LICENCE.txt" "$stripped_dir/" || { echo "Failed to copy LICENCE.txt"; exit 1; }
+    # Check if LICENSE.txt exists and copy it if it does
+    if [ -f "$bullet3_dir/LICENSE.txt" ]; then
+        cp "$bullet3_dir/LICENSE.txt" "$stripped_dir/" || { echo "Failed to copy LICENSE.txt"; exit 1; }
     else
-        echo "LICENCE.txt not found in $bullet3_dir, skipping copy."
+        echo "LICENSE.txt not found in $bullet3_dir, skipping copy."
     fi
 
     # Add changes to the Git index using git -C
@@ -93,13 +99,17 @@ checkout_and_sync() {
     else
         # Commit the changes with the tag name as the commit message using git -C
         git -C "$stripped_dir" commit -m "$tag_name" || { echo "Git commit failed"; exit 1; }
-        echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, copied LICENCE.txt (if it existed), and committed."
+        echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, copied LICENSE.txt (if it existed), and committed."
     fi
 
     # Tag the commit with the tag name
     git -C "$stripped_dir" tag "$tag_name" || { echo "Failed to create tag $tag_name"; exit 1; }
 
     echo "Tag $tag_name created in $stripped_dir."
+    
+    
+    cp -f stripped-README.md stripped/README.md
+    cp -f CMakeLists.txt stripped/
 }
 
 
