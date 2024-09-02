@@ -34,7 +34,7 @@ find_unique_tags() {
     # Get tags from stripped
     tags_stripped=$(list_tags "$dir_stripped")
 
-    echo "Tags in $dir_bullet3 but not in $dir_stripped:"
+    # echo "Tags in $dir_bullet3 but not in $dir_stripped:"
 
     # Compare the tags
     for tag in $tags_bullet3; do
@@ -47,7 +47,8 @@ find_unique_tags() {
 #find_unique_tags bullet3 stripped
 #
 
-# Function to checkout a tag in bullet3, sync to stripped, and commit
+
+# Function to checkout a tag in bullet3, sync to stripped, copy LICENSE.txt, and commit
 checkout_and_sync() {
     local tag_name=$1
 
@@ -76,6 +77,9 @@ checkout_and_sync() {
     # Sync src directory from bullet3 to stripped using rsync
     rsync -av --delete "$bullet3_dir/src/" "$stripped_dir/src/" || { echo "Rsync failed"; exit 1; }
 
+    # Copy LICENSE.txt from bullet3 to the root of stripped
+    cp "$bullet3_dir/LICENSE.txt" "$stripped_dir/" || { echo "Failed to copy LICENSE.txt"; }
+
     # Navigate to the stripped directory
     cd "$stripped_dir" || { echo "Failed to navigate to $stripped_dir"; exit 1; }
 
@@ -85,11 +89,35 @@ checkout_and_sync() {
     # Commit the changes with the tag name as the commit message
     git commit -m "$tag_name" || { echo "Git commit failed"; exit 1; }
 
-    echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, and committed."
+    echo "Checked out $tag_name in $bullet3_dir, synced to $stripped_dir, copied LICENSE.txt, and committed."
 }
 
-# Call the function with the provided tag name
-#checkout_and_sync "$1"
-#
+
+
+
+# Function to process each tag from find_unique_tags and pass it to checkout_and_sync
+process_tags() {
+    local bullet3_dir=$1
+    local stripped_dir=$2
+
+    # Get the list of unique tags from find_unique_tags function
+    unique_tags=$(find_unique_tags "$bullet3_dir" "$stripped_dir")
+
+    # Process each tag
+    echo "$unique_tags" | while read -r tag; do
+        if [ -n "$tag" ]; then
+            echo "Processing tag: $tag"
+            checkout_and_sync "$tag"
+        fi
+    done
+}
+
+# Example usage: pass the paths to the bullet3 and stripped directories
+bullet3_dir="`realpath ./bullet3`"
+stripped_dir="`realpath ./stripped`":
+
+# Call the process_tags function with the paths to bullet3 and stripped directories
+process_tags "$bullet3_dir" "$stripped_dir"
+
 
 
